@@ -133,3 +133,13 @@ Add screenshots here later:
 ## Note
 
 Cost and CO₂ figures are estimates for demonstration only.
+
+## License
+
+All rights reserved.
+
+- Commercial use is **not allowed**
+- Use without written permission is **not allowed**
+
+See the `LICENSE` file for full terms.
+Contact: mansisharmaseo@gmail.com
