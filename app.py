@@ -278,9 +278,9 @@ if page == "Dashboard":
 
     left, right = st.columns(2)
     with left:
-        solar = st.slider("Solar Power (kW)", 0.0, 8.0, 4.0, 0.1)
-        wind = st.slider("Wind Power (kW)", 0.0, 5.0, 1.5, 0.1)
-        load = st.slider("House Load (kW)", 0.5, 8.0, 3.5, 0.1)
+        solar = st.slider("Solar Power (kW)", 0.0, 50.0, 25.0, 0.1)
+        wind = st.slider("Wind Power (kW)", 0.0, 40.0, 20.0, 0.1)
+        load = st.slider("House Load (kW)", 5.0, 80.0, 55.0, 0.1)
     with right:
         battery = st.slider("Battery Level (%)", 0, 100, 70, 1)
         time_of_day = st.selectbox(
@@ -335,9 +335,9 @@ elif page == "Scenario Comparison":
 
     with left:
         st.subheader("Scenario A")
-        a_solar = st.slider("A - Solar (kW)", 0.0, 8.0, 5.0, 0.1, key="a_solar")
-        a_wind = st.slider("A - Wind (kW)", 0.0, 5.0, 1.0, 0.1, key="a_wind")
-        a_load = st.slider("A - Load (kW)", 0.5, 8.0, 3.0, 0.1, key="a_load")
+        a_solar = st.slider("A - Solar (kW)", 0.0, 50.0, 40.0, 0.1, key="a_solar")
+        a_wind = st.slider("A - Wind (kW)", 0.0, 40.0, 15.0, 0.1, key="a_wind")
+        a_load = st.slider("A - Load (kW)", 5.0, 80.0, 45.0, 0.1, key="a_load")
         a_batt = st.slider("A - Battery (%)", 0, 100, 80, 1, key="a_batt")
         a_time = st.selectbox(
             "A - Time", ["Morning", "Afternoon", "Evening", "Night"], key="a_time"
@@ -348,9 +348,9 @@ elif page == "Scenario Comparison":
 
     with right:
         st.subheader("Scenario B")
-        b_solar = st.slider("B - Solar (kW)", 0.0, 8.0, 1.5, 0.1, key="b_solar")
-        b_wind = st.slider("B - Wind (kW)", 0.0, 5.0, 2.0, 0.1, key="b_wind")
-        b_load = st.slider("B - Load (kW)", 0.5, 8.0, 4.5, 0.1, key="b_load")
+        b_solar = st.slider("B - Solar (kW)", 0.0, 50.0, 8.0, 0.1, key="b_solar")
+        b_wind = st.slider("B - Wind (kW)", 0.0, 40.0, 18.0, 0.1, key="b_wind")
+        b_load = st.slider("B - Load (kW)", 5.0, 80.0, 70.0, 0.1, key="b_load")
         b_batt = st.slider("B - Battery (%)", 0, 100, 25, 1, key="b_batt")
         b_time = st.selectbox(
             "B - Time",
@@ -432,12 +432,20 @@ elif page == "Decision Log":
 elif page == "Sample Scenarios":
     st.header("Sample Scenarios")
     st.write(
-        "There are about 30 sample rows in the CSV. "
-        "Pick a number and run it through the decision engine."
+        "This page uses the **HESS dataset** (`data/HESS_Dataset.csv`) – "
+        "about 1000 hourly rows. Columns are mapped to solar, wind, load, "
+        "battery, weather and time for the decision engine."
     )
 
     df = load_sample_data()
-    st.dataframe(with_one_based_index(df), use_container_width=True)
+
+    show_cols = [
+        "Timestamp", "solar", "wind", "load", "battery", "weather", "time",
+        "grid_from_dataset", "power_supplied", "power_loss",
+    ]
+    show_cols = [c for c in show_cols if c in df.columns]
+    st.dataframe(with_one_based_index(df[show_cols]), use_container_width=True)
+    st.caption(f"Total rows loaded: {len(df)}")
 
     scen_no = st.number_input(
         f"Scenario number (1 to {len(df)})",
@@ -460,6 +468,8 @@ elif page == "Sample Scenarios":
             f"Load={row['load']} kW, Battery={row['battery']}%, "
             f"Weather={row['weather']}, Time={row['time']}"
         )
+        if "Timestamp" in row:
+            st.write(f"**Timestamp:** {row['Timestamp']}")
         st.success(f"Selected Energy Source: **{out['selected_source']}**")
         show_numbers(out)
         show_why(out)
@@ -471,9 +481,16 @@ elif page == "Sample Scenarios":
 # =========================
 elif page == "Results Summary":
     st.header("Results Summary")
-    st.write("Average values after running the engine on every sample row.")
+    st.write(
+        "Average values after running the decision engine on the HESS dataset. "
+        "You can choose how many rows to analyse (1000 rows can take a few seconds)."
+    )
 
-    results_df = simulate_all_scenarios()
+    df_all = load_sample_data()
+    max_n = len(df_all)
+    n_rows = st.slider("Rows to analyse", 50, max_n, min(200, max_n), 50)
+
+    results_df = simulate_all_scenarios(df_all, max_rows=n_rows)
     summary = calculate_summary(results_df)
 
     a1, a2, a3 = st.columns(3)
@@ -645,7 +662,7 @@ HybridSmart/
 ├── utils.py
 ├── report_generator.py
 ├── data/
-│   └── sample_energy_data.csv
+│   └── HESS_Dataset.csv
 ├── requirements.txt
 └── README.md
         """

@@ -174,8 +174,8 @@ def decide_energy_sources(solar_kw, wind_kw, load_kw, battery_percent, weather, 
     if batt_pct > 100:
         batt_pct = 100
 
-    # assuming battery size = 10 kWh for this project
-    batt_size = 10.0
+    # assuming battery size = 100 kWh for this HESS-scale prototype
+    batt_size = 100.0
     batt_can_give = (batt_pct / 100.0) * batt_size
 
     solar_used = 0.0

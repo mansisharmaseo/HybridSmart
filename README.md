@@ -62,10 +62,32 @@ HybridSmart/
 ├── utils.py
 ├── report_generator.py
 ├── data/
-│   └── sample_energy_data.csv
+│   └── HESS_Dataset.csv
 ├── requirements.txt
 └── README.md
 ```
+
+---
+
+## Dataset
+
+The app uses `data/HESS_Dataset.csv` (about 1000 hourly rows).
+
+Original columns include:
+
+- `Timestamp`
+- `Solar_Power_kW`
+- `Wind_Power_kW`
+- `Load_Demand_kW`
+- `Battery_SoC_%`
+- `Grid_Power_kW`
+- and related power fields
+
+These are mapped for the decision engine as:
+
+- solar / wind / load / battery
+- time (from timestamp hour)
+- weather (estimated from solar level, because the CSV has no weather column)
 
 ---
 

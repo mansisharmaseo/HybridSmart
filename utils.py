@@ -2,6 +2,7 @@
 utils.py
 --------
 Small helper functions used by the Streamlit app.
+Loads the HESS dataset and maps it to the decision engine inputs.
 """
 
 import os
@@ -16,7 +17,6 @@ color_renew = "#2E8B57"
 color_batt = "#E67E22"
 color_grid = "#C0392B"
 
-# keep old names so older imports still work
 COLOUR_SOLAR = color_solar
 COLOUR_WIND = color_wind
 COLOUR_RENEWABLE = color_renew
@@ -40,13 +40,78 @@ def with_one_based_index(df):
     return out
 
 
+def get_data_folder():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+
+def get_hess_path():
+    return os.path.join(get_data_folder(), "HESS_Dataset.csv")
+
+
 def get_data_path():
-    folder = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(folder, "data", "sample_energy_data.csv")
+    # kept for older references – main data is now HESS_Dataset.csv
+    return get_hess_path()
+
+
+def hour_to_time_label(hour):
+    # simple time-of-day buckets from timestamp hour
+    hour = int(hour)
+    if 5 <= hour <= 11:
+        return "Morning"
+    if 12 <= hour <= 16:
+        return "Afternoon"
+    if 17 <= hour <= 20:
+        return "Evening"
+    return "Night"
+
+
+def guess_weather(solar_kw):
+    # dataset has no weather column, so we estimate from solar level
+    if solar_kw >= 30:
+        return "Sunny"
+    if solar_kw >= 15:
+        return "Cloudy"
+    return "Rainy"
+
+
+def prepare_hess_dataframe(raw_df):
+    """
+    Map HESS columns to the names used by the decision engine:
+    solar, wind, load, battery, weather, time
+    Also keeps useful original columns for display.
+    """
+    df = raw_df.copy()
+    df = df.dropna(subset=["Solar_Power_kW", "Wind_Power_kW", "Load_Demand_kW", "Battery_SoC_%"])
+
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+    df = df.dropna(subset=["Timestamp"])
+
+    df["solar"] = df["Solar_Power_kW"].astype(float).round(2)
+    df["wind"] = df["Wind_Power_kW"].astype(float).round(2)
+    df["load"] = df["Load_Demand_kW"].astype(float).round(2)
+    df["battery"] = df["Battery_SoC_%"].astype(float).round(1)
+    df["time"] = df["Timestamp"].dt.hour.apply(hour_to_time_label)
+    df["weather"] = df["solar"].apply(guess_weather)
+
+    # keep a few original fields for the Sample Scenarios page
+    if "Grid_Power_kW" in df.columns:
+        df["grid_from_dataset"] = df["Grid_Power_kW"].astype(float).round(2)
+    if "Power_Supplied_kW" in df.columns:
+        df["power_supplied"] = df["Power_Supplied_kW"].astype(float).round(2)
+    if "Power_Loss_kW" in df.columns:
+        df["power_loss"] = df["Power_Loss_kW"].astype(float).round(2)
+
+    df = df.reset_index(drop=True)
+    return df
 
 
 def load_sample_data():
-    return pd.read_csv(get_data_path())
+    """
+    Load the HESS dataset and return mapped rows for the app.
+    """
+    path = get_hess_path()
+    raw = pd.read_csv(path)
+    return prepare_hess_dataframe(raw)
 
 
 def run_simulation(solar, wind, load, battery, weather, time_of_day):
@@ -86,15 +151,20 @@ def result_to_log_row(result):
     }
 
 
-def simulate_all_scenarios(df=None):
+def simulate_all_scenarios(df=None, max_rows=None):
     if df is None:
         df = load_sample_data()
+
+    # for the Results page we can limit rows if needed (default: all)
+    if max_rows is not None:
+        df = df.head(max_rows)
 
     rows = []
     for i, row in df.iterrows():
         out = run_simulation_on_row(row)
         rows.append({
             "scenario": i + 1,
+            "timestamp": str(row["Timestamp"]) if "Timestamp" in row else "",
             "solar": row["solar"],
             "wind": row["wind"],
             "load": row["load"],
@@ -131,10 +201,9 @@ def calculate_summary(results_df):
 
 
 def compare_scenarios(result_a, result_b, label_a="Scenario A", label_b="Scenario B"):
-    # compare a few key numbers side by side
     checks = [
         ("Renewable Usage %", "renewable_pct", True),
-        ("Grid Usage %", "grid_pct", False),  # lower is better
+        ("Grid Usage %", "grid_pct", False),
         ("Battery Usage (kW)", "battery_used", True),
         ("Cost Saving (£)", "cost_saving", True),
         ("CO₂ Saving (kg)", "co2_saving", True),
@@ -167,76 +236,76 @@ def compare_scenarios(result_a, result_b, label_a="Scenario A", label_b="Scenari
     return pd.DataFrame(table_rows), notes
 
 
-# 10 fixed tests for the Testing page
+# 10 fixed tests – values closer to the HESS dataset scale
 TEST_SCENARIOS = [
     {
         "name": "Sunny Morning",
-        "solar": 5.5, "wind": 1.0, "load": 3.0, "battery": 80,
+        "solar": 42.0, "wind": 12.0, "load": 45.0, "battery": 80,
         "weather": "Sunny", "time": "Morning",
-        "expected_decision": "Mostly solar",
-        "expected_notes": "Sunny morning – solar should handle most of the load.",
+        "expected_decision": "Mostly solar (+ wind if needed)",
+        "expected_notes": "High solar – renewables should cover a large share.",
     },
     {
         "name": "Cloudy Afternoon",
-        "solar": 3.0, "wind": 1.5, "load": 3.5, "battery": 60,
+        "solar": 22.0, "wind": 18.0, "load": 55.0, "battery": 60,
         "weather": "Cloudy", "time": "Afternoon",
         "expected_decision": "Solar + Wind (maybe battery)",
-        "expected_notes": "Clouds cut solar, so wind/battery may help.",
+        "expected_notes": "Medium solar, so wind/battery may help.",
     },
     {
         "name": "Rainy Evening",
-        "solar": 2.0, "wind": 2.2, "load": 4.0, "battery": 55,
+        "solar": 8.0, "wind": 28.0, "load": 60.0, "battery": 55,
         "weather": "Rainy", "time": "Evening",
         "expected_decision": "Wind + battery / grid",
-        "expected_notes": "Rain + evening = weak solar.",
+        "expected_notes": "Low solar in rain/evening.",
     },
     {
         "name": "Night High Load",
-        "solar": 0.5, "wind": 1.8, "load": 5.0, "battery": 50,
+        "solar": 5.0, "wind": 15.0, "load": 75.0, "battery": 50,
         "weather": "Cloudy", "time": "Night",
         "expected_decision": "Wind + battery + grid",
-        "expected_notes": "Night time, high load – grid is likely.",
+        "expected_notes": "Night + high load – grid is likely.",
     },
     {
         "name": "Battery Low",
-        "solar": 2.0, "wind": 1.0, "load": 4.5, "battery": 22,
+        "solar": 15.0, "wind": 10.0, "load": 65.0, "battery": 22,
         "weather": "Cloudy", "time": "Evening",
         "expected_decision": "Solar/Wind + Grid (no battery)",
         "expected_notes": "Battery under 30% so it should not discharge.",
     },
     {
         "name": "Battery Full",
-        "solar": 6.0, "wind": 1.2, "load": 2.5, "battery": 95,
+        "solar": 45.0, "wind": 20.0, "load": 40.0, "battery": 95,
         "weather": "Sunny", "time": "Afternoon",
-        "expected_decision": "Solar",
-        "expected_notes": "Battery already full, not much room to charge.",
+        "expected_decision": "Solar + Wind",
+        "expected_notes": "Battery already full, little room to charge.",
     },
     {
         "name": "High Wind",
-        "solar": 1.0, "wind": 4.0, "load": 3.5, "battery": 70,
+        "solar": 10.0, "wind": 38.0, "load": 50.0, "battery": 70,
         "weather": "Rainy", "time": "Afternoon",
         "expected_decision": "Mostly wind",
         "expected_notes": "Strong wind should cover a lot of the load.",
     },
     {
         "name": "Peak Load",
-        "solar": 3.5, "wind": 1.5, "load": 7.0, "battery": 65,
+        "solar": 25.0, "wind": 15.0, "load": 78.0, "battery": 65,
         "weather": "Sunny", "time": "Evening",
         "expected_decision": "Mix including grid",
         "expected_notes": "Peak load usually needs more than one source.",
     },
     {
         "name": "Low Demand",
-        "solar": 4.0, "wind": 1.5, "load": 1.5, "battery": 50,
+        "solar": 35.0, "wind": 18.0, "load": 32.0, "battery": 50,
         "weather": "Sunny", "time": "Morning",
-        "expected_decision": "Solar only",
-        "expected_notes": "Low demand – renewables should be enough.",
+        "expected_decision": "Solar (+ wind)",
+        "expected_notes": "Lower demand – renewables should be enough.",
     },
     {
         "name": "Balanced Energy",
-        "solar": 3.5, "wind": 1.5, "load": 3.5, "battery": 60,
+        "solar": 30.0, "wind": 20.0, "load": 50.0, "battery": 60,
         "weather": "Sunny", "time": "Afternoon",
-        "expected_decision": "Solar (maybe + wind)",
+        "expected_decision": "Solar + Wind",
         "expected_notes": "Supply and demand are fairly close.",
     },
 ]
