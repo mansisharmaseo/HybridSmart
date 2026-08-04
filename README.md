@@ -83,11 +83,14 @@ Original columns include:
 - `Grid_Power_kW`
 - and related power fields
 
-These are mapped for the decision engine as:
+These are mapped for the decision engine / UI as:
 
-- solar / wind / load / battery
-- time (from timestamp hour)
-- weather (estimated from solar level, because the CSV has no weather column)
+- Solar (kW) / Wind (kW) / Load (kW) / Battery (%)
+- Time of Day (from timestamp hour)
+- Weather (estimated from solar level, because the CSV has no weather column)
+
+Tables in the app show clean labels (no underscores), for example:
+`Solar Used (kW)`, `Selected Source`, `Grid in Dataset (kW)`.
 
 ---
 

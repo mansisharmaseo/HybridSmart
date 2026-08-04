@@ -40,6 +40,51 @@ def with_one_based_index(df):
     return out
 
 
+# Nice names for tables shown in the UI (no underscores)
+DISPLAY_NAMES = {
+    "Timestamp": "Timestamp",
+    "timestamp": "Timestamp",
+    "solar": "Solar (kW)",
+    "wind": "Wind (kW)",
+    "load": "Load (kW)",
+    "battery": "Battery (%)",
+    "weather": "Weather",
+    "time": "Time of Day",
+    "grid_from_dataset": "Grid in Dataset (kW)",
+    "power_supplied": "Power Supplied (kW)",
+    "power_loss": "Power Loss (kW)",
+    "scenario": "Scenario",
+    "selected_source": "Selected Source",
+    "solar_used": "Solar Used (kW)",
+    "wind_used": "Wind Used (kW)",
+    "battery_used": "Battery Used (kW)",
+    "grid_used": "Grid Used (kW)",
+    "battery_remaining": "Battery Remaining (%)",
+    "renewable_utilisation": "Renewable (%)",
+    "grid_dependency": "Grid Dependency (%)",
+    "co2_saving": "CO2 Saving (kg)",
+    "cost_saving": "Cost Saving (£)",
+    "system_efficiency": "System Efficiency (%)",
+}
+
+
+def nice_table(df):
+    """
+    Make a display copy of a DataFrame with clean column labels
+    and row numbers starting at 1.
+    """
+    out = df.copy()
+    rename_map = {}
+    for col in out.columns:
+        if col in DISPLAY_NAMES:
+            rename_map[col] = DISPLAY_NAMES[col]
+        else:
+            # fallback: turn snake_case into Title Case words
+            rename_map[col] = str(col).replace("_", " ").title()
+    out = out.rename(columns=rename_map)
+    return with_one_based_index(out)
+
+
 def get_data_folder():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 

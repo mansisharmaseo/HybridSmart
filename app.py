@@ -21,6 +21,7 @@ from utils import (
     compare_scenarios,
     get_decision_flow_dot,
     load_sample_data,
+    nice_table,
     result_to_log_row,
     run_simulation,
     run_test_scenario,
@@ -389,7 +390,7 @@ elif page == "Scenario Comparison":
 
         table, notes = compare_scenarios(out_a, out_b)
         st.subheader("Comparison Table")
-        st.dataframe(with_one_based_index(table), use_container_width=True)
+        st.dataframe(nice_table(table), use_container_width=True)
 
         st.subheader("Which one is better?")
         if notes:
@@ -416,7 +417,7 @@ elif page == "Decision Log":
         st.warning("Nothing in the log yet. Run something on the Dashboard first.")
     else:
         log_df = pd.DataFrame(st.session_state.decision_log)
-        st.dataframe(with_one_based_index(log_df), use_container_width=True)
+        st.dataframe(nice_table(log_df), use_container_width=True)
         csv_bytes = log_df.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="Download Decision Log (CSV)",
@@ -444,7 +445,7 @@ elif page == "Sample Scenarios":
         "grid_from_dataset", "power_supplied", "power_loss",
     ]
     show_cols = [c for c in show_cols if c in df.columns]
-    st.dataframe(with_one_based_index(df[show_cols]), use_container_width=True)
+    st.dataframe(nice_table(df[show_cols]), use_container_width=True)
     st.caption(f"Total rows loaded: {len(df)}")
 
     scen_no = st.number_input(
@@ -505,7 +506,7 @@ elif page == "Results Summary":
 
     st.markdown("---")
     st.subheader("Per-scenario results")
-    st.dataframe(with_one_based_index(results_df), use_container_width=True)
+    st.dataframe(nice_table(results_df), use_container_width=True)
 
     st.subheader("Overview Charts")
     oc1, oc2 = st.columns(2)
@@ -528,7 +529,7 @@ elif page == "Results Summary":
             x="scenario",
             y="co2_saving",
             title="CO₂ Saving per Scenario (kg)",
-            labels={"scenario": "Scenario", "co2_saving": "CO₂ (kg)"},
+            labels={"scenario": "Scenario", "co2_saving": "CO₂ Saving (kg)"},
             color_discrete_sequence=[COLOUR_RENEWABLE],
         )
         st.plotly_chart(fig2, use_container_width=True)
@@ -591,7 +592,7 @@ elif page == "Testing":
                 "Actual": actual["grid_used"],
             },
         ])
-        st.dataframe(with_one_based_index(check_df), use_container_width=True)
+        st.dataframe(nice_table(check_df), use_container_width=True)
 
     st.markdown("---")
     st.subheader("Run all tests")
@@ -609,7 +610,7 @@ elif page == "Testing":
                 "Cost Saving (£)": actual["cost_saving"],
                 "CO₂ Saving (kg)": actual["co2_saving"],
             })
-        st.dataframe(with_one_based_index(pd.DataFrame(all_rows)), use_container_width=True)
+        st.dataframe(nice_table(pd.DataFrame(all_rows)), use_container_width=True)
         st.success("Finished all 10 tests.")
 
 
@@ -694,7 +695,7 @@ HybridSmart/
             "PDF reports",
         ],
     })
-    st.table(with_one_based_index(tech))
+    st.table(nice_table(tech))
 
 
 # =========================
